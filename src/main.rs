@@ -3,8 +3,9 @@ use std::{
     net::{TcpListener, TcpStream},
 };
 mod http_response;
+mod http_request;
 use http_response::HTTPResponse;
-
+use http_request::HTTPRequest;
 fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
     println!("Logs from your program will appear here!");
@@ -28,21 +29,29 @@ fn main() {
 }
 
 fn handle_connection(mut stream: TcpStream) {
-    let buf_reader = BufReader::new(&mut stream);
-    let request_line = buf_reader.lines().next().unwrap().unwrap();
+    let mut request = HTTPRequest::new();
+    
 
-    let endpoint_unformatted: Vec<&str> = request_line.split(' ').collect();
-    let endpoint = endpoint_unformatted[1];
+    let mut buf_reader = BufReader::new(&mut stream);
+    request.set_from_buffer(&mut buf_reader);
+    
     let mut response: Option<HTTPResponse> = None;
 
-    if endpoint.starts_with("/"){
-        if endpoint == "/" {
+    if request.endpoint().starts_with("/"){
+        if request.endpoint() == "/" {
             response = Some(HTTPResponse::new("HTTP/1.1 200 OK".to_string()));
-        }else if endpoint.starts_with("/echo/"){
+        }else if request.endpoint().starts_with("/echo/"){
             response = Some(HTTPResponse::new("HTTP/1.1 200 OK".to_string()));
-            let url: Vec<&str> = endpoint.split("/echo/").collect();
+            let url: Vec<&str> = request.endpoint().split("/echo/").collect();
             if let Some(resp) = response.as_mut() {
                 resp.set_body_as_plain_text(url[1].to_string());
+            }
+        }else if request.endpoint() == "/user-agent"{
+            response = Some(HTTPResponse::new("HTTP/1.1 200 OK".to_string()));
+            if let Some(resp) = response.as_mut() {
+                let headers = request.headers();
+
+                resp.set_body_as_plain_text(headers["User-Agent"].clone());
             }
         }else{
             response  = Some(HTTPResponse::new("HTTP/1.1 404 Not Found".to_string()));
