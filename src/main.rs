@@ -1,6 +1,7 @@
 use std::{
     io::{prelude::*, BufReader},
     net::{TcpListener, TcpStream},
+    thread,
 };
 mod http_response;
 mod http_request;
@@ -17,8 +18,11 @@ fn main() {
     for stream in listener.incoming() {
         match stream {
             Ok(mut _stream) => {
-                println!("accepted new connection");
-                handle_connection(_stream);
+                thread::spawn(|| {
+                    println!("accepted new connection");
+                    handle_connection(_stream);
+                });
+
             }
             Err(e) => {
                 println!("error: {}", e);
