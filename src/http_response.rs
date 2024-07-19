@@ -20,10 +20,10 @@ impl HTTPResponse {
         Self { status_line, ..Default::default()}
     }
 
-    pub fn set_body_as_plain_text(&mut self, body: String) {
+    pub fn set_body_as_plain_text(&mut self, content_type: String, body: String) {
         let headers =  HTTPHeaders{
             content_length: Some(body.as_bytes().len().to_string()),
-            content_type: Some("text/plain".to_string()),
+            content_type: Some(content_type),
         };
         let body = HTTPBody {
             body: body,
@@ -32,7 +32,6 @@ impl HTTPResponse {
         self.headers = Some(headers);
         self.body = Some(body);
     }
-
 
     pub fn get_formatted_response(&self) -> String {
         let mut result: String= format!("{0}\r\n", self.status_line);
