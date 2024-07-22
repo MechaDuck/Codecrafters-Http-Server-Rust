@@ -53,6 +53,22 @@ fn handle_connection(mut stream: TcpStream, file_directory: Option<String>) {
     let mut buf_reader = BufReader::new(&mut stream);
     request.set_from_buffer(&mut buf_reader);
 
+    let response = match request.method() {
+        "GET" => handle_get_request(request,file_directory),
+        "POST" => handle_post_request(request,file_directory),
+        _ => HTTPResponse::new("HTTP/1.1 404 Not Found".to_string()),
+    };
+
+    stream.write_all(response.get_formatted_response().as_bytes()).unwrap();
+}
+fn handle_post_request(request: HTTPRequest,file_directory: Option<String>) -> HTTPResponse {
+    let response = match request.endpoint() {
+        endpoint if endpoint.starts_with("/files/") => handle_file_post(endpoint, &file_directory, request.body()),
+        _=> HTTPResponse::new("HTTP/1.1 404 Not Found".to_string()),
+    };
+    response
+}
+fn handle_get_request(request: HTTPRequest,file_directory: Option<String>) -> HTTPResponse {
     let response = match request.endpoint() {
         "/" => handle_root(),
         endpoint if endpoint.starts_with("/echo/") => handle_echo(endpoint),
@@ -60,8 +76,7 @@ fn handle_connection(mut stream: TcpStream, file_directory: Option<String>) {
         endpoint if endpoint.starts_with("/files/") => handle_file_request(endpoint, &file_directory),
         _ => HTTPResponse::new("HTTP/1.1 404 Not Found".to_string()),
     };
-
-    stream.write_all(response.get_formatted_response().as_bytes()).unwrap();
+    response
 }
 
 fn handle_root() -> HTTPResponse {
@@ -85,7 +100,7 @@ fn handle_user_agent(request: &HTTPRequest) -> HTTPResponse {
 
 fn handle_file_request(endpoint: &str, file_directory: &Option<String>) -> HTTPResponse {
     if let Some(ref dir) = *file_directory {
-        let filename = endpoint.trim_start_matches("/files/");
+        let filename: &str = endpoint.trim_start_matches("/files/");
         match read_file_as_string(dir, filename) {
             Ok(content) => {
                 let mut response = HTTPResponse::new("HTTP/1.1 200 OK".to_string());
@@ -105,4 +120,26 @@ fn read_file_as_string(dir: &str, filename: &str) -> Result<String, io::Error> {
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
     Ok(contents)
+}
+
+fn handle_file_post(endpoint: &str, file_directory: &Option<String>, content: &str) -> HTTPResponse {
+    if let Some(ref dir) = *file_directory {
+        let filename: &str = endpoint.trim_start_matches("/files/");
+        match write_string_to_file(dir, filename, content) {
+            Ok(content) => {
+                let mut response = HTTPResponse::new("HTTP/1.1 201 Created".to_string());
+                response
+            }
+            Err(_) => HTTPResponse::new("HTTP/1.1 404 Not Found".to_string()),
+        }
+    } else {
+        HTTPResponse::new("HTTP/1.1 404 Not Found".to_string())
+    }
+}
+
+fn write_string_to_file(dir: &str, filename: &str, content: &str) -> Result<(), io::Error> {
+    let path = Path::new(dir).join(filename);
+    let mut file = File::create(path)?;
+    file.write_all(content.as_bytes())?;
+    Ok(())
 }

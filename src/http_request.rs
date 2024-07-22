@@ -1,5 +1,5 @@
 use std::{
-    io::{prelude::*, BufReader, BufRead,Cursor},
+    io::{self, prelude::*, BufReader, BufRead},
     net::{TcpListener, TcpStream},
 };
 use std::collections::HashMap;
@@ -9,6 +9,7 @@ pub struct HTTPRequest{
     endpoint: String,
     protocol: String,
     headers: HashMap<String, String>,
+    body: String,
 
 }
 
@@ -21,31 +22,41 @@ impl HTTPRequest{
             endpoint: String::new(),
             protocol: String::new(),
             headers: HashMap::new(),
+            body: String::new(),
         }
     }
 
-    pub fn set_from_buffer(&mut self, buffer: &mut dyn BufRead){
-        let mut lines = buffer.lines();
+    pub fn set_from_buffer(&mut self, buffer: &mut dyn BufRead) -> io::Result<()> {
+        // Read the request line
+        let mut request_line = String::new();
+        buffer.read_line(&mut request_line)?;
+        self.set_from_request_line(request_line.trim().to_string());
 
-        if let Some(Ok(request_line)) = lines.next() {
-            self.set_from_request_line(request_line);
-        }
-
-        for line in lines {
-            match line {
-                Ok(header_line) => {
-                    if header_line.trim().is_empty() {
-                        break;
-                    }
-                    let header_elements: Vec<&str> = header_line.split(": ").collect();
-                    self.headers.insert(header_elements[0].to_string(), header_elements[1].to_string());
-                }
-                Err(e) => {
-                    eprintln!("Error reading line: {}", e);
-                }
+        // Read headers
+        let mut header_line = String::new();
+        while buffer.read_line(&mut header_line)? > 0 {
+            let trimmed_line = header_line.trim();
+            if trimmed_line.is_empty() {
+                break; // End of headers
             }
+            let mut header_parts = trimmed_line.splitn(2, ": ");
+            if let (Some(key), Some(value)) = (header_parts.next(), header_parts.next()) {
+                self.headers.insert(key.to_string(), value.to_string());
+            }
+            header_line.clear(); // Clear the buffer for the next line
         }
 
+        // Read the body if Content-Length is specified
+        if let Some(content_length) = self.headers.get("Content-Length") {
+            let content_length: usize = content_length.parse().unwrap_or(0);
+            let mut body_buffer = vec![0; content_length];
+            buffer.read_exact(&mut body_buffer).unwrap();
+            self.body = String::from_utf8(body_buffer)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+
+        }
+
+        Ok(())
     }
 
     fn set_from_request_line(&mut self, line: String){
@@ -69,6 +80,10 @@ impl HTTPRequest{
 
     pub fn headers(&self) -> &HashMap<String, String> {
         &self.headers
+    }
+
+    pub fn body(&self) -> &str {
+        &self.body
     }
 
 
