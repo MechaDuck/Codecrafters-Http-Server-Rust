@@ -13,7 +13,6 @@ mod http_request;
 use http_response::HTTPResponse;
 use http_request::HTTPRequest;
 
-/// Simple program to greet a person
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
 struct Args {
