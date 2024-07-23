@@ -110,7 +110,12 @@ fn handle_echo(request: HTTPRequest) -> HTTPResponse {
 
     // Set Content-Encoding header if requested
     if request.headers().contains_key("Accept-Encoding") {
-        if request.headers()["Accept-Encoding"] == "gzip" {
+        // Split the string by commas and trim whitespace
+        let encodings_vec: Vec<&str> = request.headers()["Accept-Encoding"]
+        .split(',')
+        .map(|s| s.trim())
+        .collect();
+        if encodings_vec.contains(&"gzip") {
             response.get_headers().set_content_encoding("gzip".to_string());
         }
     }
