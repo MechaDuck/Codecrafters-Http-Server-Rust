@@ -22,8 +22,8 @@ impl HTTPResponse {
     }
 
     // Set the body of the response as plain text and update headers accordingly
-    pub fn set_body_as_plain_text(&mut self, content_type: String, body: String) {
-        self.headers.set_content_length(body.as_bytes().len().to_string());
+    pub fn set_body_as_plain_text(&mut self, content_type: String, body: Vec<u8>) {
+        self.headers.set_content_length(body.len().to_string());
         self.headers.set_content_type(content_type.clone());
 
         let body = HTTPBody {
@@ -34,18 +34,20 @@ impl HTTPResponse {
     }
 
     // Format the entire HTTP response as a string
-    pub fn get_formatted_response(&self) -> String {
+    pub fn get_formatted_response(&self) -> Vec<u8> {
         let mut result: String = format!("{0}\r\n", self.status_line);
 
         result.push_str(&format!("{0}", self.headers.get_formatted()));
         
         result.push_str("\r\n");
 
-        if let Some(body) = &self.body {
-            result.push_str(&format!("{0}", body.get_formatted()));
-        }
+        let mut byte_result = result.into_bytes();
 
-        result
+        if let Some(body) = &self.body {
+            byte_result.extend_from_slice(body.get_body());
+        }
+        
+        byte_result
     }
 
     // Return a mutable reference to the HTTPHeaders
@@ -96,14 +98,16 @@ impl HTTPHeaders {
     pub fn get_formatted(&self) -> String {
         let mut result: String = String::new();
 
+
+        if let Some(content_encoding) = &self.content_encoding {
+            result.push_str(&format!("Content-Encoding: {content_encoding}\r\n"));
+        }
         if let Some(content_type) = &self.content_type {
             result.push_str(&format!("Content-Type: {content_type}\r\n"));
         }
+
         if let Some(content_length) = &self.content_length {
             result.push_str(&format!("Content-Length: {content_length}\r\n"));
-        }
-        if let Some(content_encoding) = &self.content_encoding {
-            result.push_str(&format!("Content-Encoding: {content_encoding}\r\n"));
         }
         result
     }
@@ -111,17 +115,17 @@ impl HTTPHeaders {
 
 #[derive(Clone)]
 struct HTTPBody {
-    body: String,   // The body of the HTTP response
+    body: Vec<u8>,   // The body of the HTTP response
 }
 
 impl HTTPBody {
     // Create a new HTTPBody with the provided body content
-    fn new(body: String) -> Self {
+    fn new(body: Vec<u8>) -> Self {
         Self { body }
     }
 
     // Format the body content as a string
-    fn get_formatted(&self) -> String {
-        format!("{}", self.body)
+    fn get_body(&self) -> &Vec<u8> {
+        &self.body
     }
 }

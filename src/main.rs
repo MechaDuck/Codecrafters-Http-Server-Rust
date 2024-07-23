@@ -10,11 +10,13 @@ use flate2::write::GzEncoder;
 use flate2::Compression;
 
 use clap::Parser;
+use base64;
 
 mod http_response;
 mod http_request;
 use http_response::HTTPResponse;
 use http_request::HTTPRequest;
+use nom::AsChar;
 
 // Define an enum for compression algorithms
 enum CompressionAlgorithm {
@@ -76,7 +78,7 @@ fn handle_connection(mut stream: TcpStream, file_directory: Option<String>) {
     };
 
     // Write response back to the client
-    stream.write_all(response.get_formatted_response().as_bytes()).unwrap();
+    stream.write_all(&response.get_formatted_response()).unwrap();
 }
 
 // Handle POST requests
@@ -123,7 +125,7 @@ fn handle_echo(request: HTTPRequest) -> HTTPResponse {
             response.get_headers().set_content_encoding("gzip".to_string());
             match gzip_data(response_text){
                 Ok(compressed_data) => {
-                    response.set_body_as_plain_text("text/plain".to_string(), String::from_utf8(compressed_data).unwrap());
+                    response.set_body_as_plain_text("text/plain".to_string(), compressed_data);
                     return response;
 
                 }
@@ -134,7 +136,7 @@ fn handle_echo(request: HTTPRequest) -> HTTPResponse {
             }
         }
     }
-    response.set_body_as_plain_text("text/plain".to_string(), response_text.to_string());
+    response.set_body_as_plain_text("text/plain".to_string(), response_text.as_bytes().to_vec());
     response
 }
 
@@ -142,7 +144,7 @@ fn handle_echo(request: HTTPRequest) -> HTTPResponse {
 fn handle_user_agent(request: &HTTPRequest) -> HTTPResponse {
     let mut response = HTTPResponse::new("HTTP/1.1 200 OK".to_string());
     if let Some(user_agent) = request.headers().get("User-Agent") {
-        response.set_body_as_plain_text("text/plain".to_string(), user_agent.clone());
+        response.set_body_as_plain_text("text/plain".to_string(), user_agent.clone().as_bytes().to_vec());
     }
     response
 }
@@ -154,7 +156,7 @@ fn handle_file_request(endpoint: &str, file_directory: &Option<String>) -> HTTPR
         match read_file_as_string(dir, filename) {
             Ok(content) => {
                 let mut response = HTTPResponse::new("HTTP/1.1 200 OK".to_string());
-                response.set_body_as_plain_text("application/octet-stream".to_string(), content);
+                response.set_body_as_plain_text("application/octet-stream".to_string(), content.as_bytes().to_vec());
                 response
             }
             Err(_) => HTTPResponse::new("HTTP/1.1 404 Not Found".to_string()),
@@ -197,6 +199,6 @@ fn write_string_to_file(dir: &str, filename: &str, content: &str) -> Result<(), 
 fn gzip_data(data: &str) -> io::Result<Vec<u8>>{
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
     encoder.write_all(data.as_bytes())?;
-    Ok(encoder.finish()?)
-
+    let compressed_data = encoder.finish()?;
+    Ok(compressed_data)
 }
