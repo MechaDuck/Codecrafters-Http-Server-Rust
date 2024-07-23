@@ -6,6 +6,9 @@ use std::{
     io::{self, Read},
     path::Path,
 };
+use flate2::write::GzEncoder;
+use flate2::Compression;
+
 use clap::Parser;
 
 mod http_response;
@@ -106,7 +109,8 @@ fn handle_root() -> HTTPResponse {
 fn handle_echo(request: HTTPRequest) -> HTTPResponse {
     let response_text = request.endpoint().trim_start_matches("/echo/");
     let mut response = HTTPResponse::new("HTTP/1.1 200 OK".to_string());
-    response.set_body_as_plain_text("text/plain".to_string(), response_text.to_string());
+
+
 
     // Set Content-Encoding header if requested
     if request.headers().contains_key("Accept-Encoding") {
@@ -117,9 +121,20 @@ fn handle_echo(request: HTTPRequest) -> HTTPResponse {
         .collect();
         if encodings_vec.contains(&"gzip") {
             response.get_headers().set_content_encoding("gzip".to_string());
+            match gzip_data(response_text){
+                Ok(compressed_data) => {
+                    response.set_body_as_plain_text("text/plain".to_string(), String::from_utf8(compressed_data).unwrap());
+                    return response;
+
+                }
+                Err(e) => {
+                    eprintln!("Failed to compress data: {}", e);
+                }
+
+            }
         }
     }
-
+    response.set_body_as_plain_text("text/plain".to_string(), response_text.to_string());
     response
 }
 
@@ -177,4 +192,11 @@ fn write_string_to_file(dir: &str, filename: &str, content: &str) -> Result<(), 
     let mut file = File::create(path)?;
     file.write_all(content.as_bytes())?;
     Ok(())
+}
+
+fn gzip_data(data: &str) -> io::Result<Vec<u8>>{
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+    encoder.write_all(data.as_bytes())?;
+    Ok(encoder.finish()?)
+
 }
