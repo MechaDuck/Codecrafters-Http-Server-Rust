@@ -13,6 +13,12 @@ mod http_request;
 use http_response::HTTPResponse;
 use http_request::HTTPRequest;
 
+enum CompressionAlgorithm {
+    Gzip,
+    Invalid_Encoding,
+}
+
+
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -70,7 +76,7 @@ fn handle_post_request(request: HTTPRequest,file_directory: Option<String>) -> H
 fn handle_get_request(request: HTTPRequest,file_directory: Option<String>) -> HTTPResponse {
     let response = match request.endpoint() {
         "/" => handle_root(),
-        endpoint if endpoint.starts_with("/echo/") => handle_echo(endpoint),
+        endpoint if endpoint.starts_with("/echo/") => handle_echo(request),
         "/user-agent" => handle_user_agent(&request),
         endpoint if endpoint.starts_with("/files/") => handle_file_request(endpoint, &file_directory),
         _ => HTTPResponse::new("HTTP/1.1 404 Not Found".to_string()),
@@ -82,10 +88,15 @@ fn handle_root() -> HTTPResponse {
     HTTPResponse::new("HTTP/1.1 200 OK".to_string())
 }
 
-fn handle_echo(endpoint: &str) -> HTTPResponse {
-    let response_text = endpoint.trim_start_matches("/echo/");
+fn handle_echo(request: HTTPRequest) -> HTTPResponse {
+    let response_text = request.endpoint().trim_start_matches("/echo/");
     let mut response = HTTPResponse::new("HTTP/1.1 200 OK".to_string());
     response.set_body_as_plain_text("text/plain".to_string(), response_text.to_string());
+    if request.headers().contains_key("Accept-Encoding"){
+        if request.headers()["Accept-Encoding"] == "gzip" {
+            response.get_headers().set_content_encoding("gzip".to_string());
+        }
+    }
     response
 }
 
