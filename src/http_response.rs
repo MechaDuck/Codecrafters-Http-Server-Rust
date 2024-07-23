@@ -1,8 +1,8 @@
 #[derive(Clone)]
 pub struct HTTPResponse {
-    status_line: String,
-    headers: HTTPHeaders,
-    body: Option<HTTPBody>, 
+    status_line: String,        // Status line of the HTTP response (e.g., "HTTP/1.1 200 OK")
+    headers: HTTPHeaders,       // HTTP headers of the response
+    body: Option<HTTPBody>,     // Optional body of the response
 }
 
 impl Default for HTTPResponse {
@@ -16,10 +16,12 @@ impl Default for HTTPResponse {
 }
 
 impl HTTPResponse {
+    // Create a new HTTPResponse with a specified status line
     pub fn new(status_line: String) -> Self {
-        Self { status_line, ..Default::default()}
+        Self { status_line, ..Default::default() }
     }
 
+    // Set the body of the response as plain text and update headers accordingly
     pub fn set_body_as_plain_text(&mut self, content_type: String, body: String) {
         self.headers.set_content_length(body.as_bytes().len().to_string());
         self.headers.set_content_type(content_type.clone());
@@ -31,33 +33,32 @@ impl HTTPResponse {
         self.body = Some(body);
     }
 
+    // Format the entire HTTP response as a string
     pub fn get_formatted_response(&self) -> String {
-        let mut result: String= format!("{0}\r\n", self.status_line);
+        let mut result: String = format!("{0}\r\n", self.status_line);
 
-
-        result.push_str(&format!("{0}", self.headers.get_formatted() ));
+        result.push_str(&format!("{0}", self.headers.get_formatted()));
         
         result.push_str("\r\n");
 
-        if let Some(body) = &self.body{
-            result.push_str(&format!("{0}", body.get_formatted()))
-        };
+        if let Some(body) = &self.body {
+            result.push_str(&format!("{0}", body.get_formatted()));
+        }
 
-        return result;
+        result
     }
 
+    // Return a mutable reference to the HTTPHeaders
     pub fn get_headers(&mut self) -> &mut HTTPHeaders {
         &mut self.headers
     }
-
-
 }
 
 #[derive(Clone)]
 pub struct HTTPHeaders {
-    content_type: Option<String>,
-    content_length: Option<String>,
-    content_encoding: Option<String>,
+    content_type: Option<String>,       // Content-Type header
+    content_length: Option<String>,     // Content-Length header
+    content_encoding: Option<String>,   // Content-Encoding header
 }
 
 impl Default for HTTPHeaders {
@@ -71,53 +72,56 @@ impl Default for HTTPHeaders {
 }
 
 impl HTTPHeaders {
+    // Create a new HTTPHeaders instance with default values
     fn new() -> Self {
-        Self {..Default::default()}
+        Self { ..Default::default() }
     }
 
-    pub fn set_content_type(&mut self, content_type: String){
+    // Set the Content-Type header
+    pub fn set_content_type(&mut self, content_type: String) {
         self.content_type = Some(content_type);
     }
 
-    pub fn set_content_length(&mut self, content_length: String){
+    // Set the Content-Length header
+    pub fn set_content_length(&mut self, content_length: String) {
         self.content_length = Some(content_length);
     }
 
-    pub fn set_content_encoding(&mut self, accept_encoding: String){
-        self.content_encoding = Some(accept_encoding);
+    // Set the Content-Encoding header
+    pub fn set_content_encoding(&mut self, content_encoding: String) {
+        self.content_encoding = Some(content_encoding);
     }
 
+    // Format the headers as a string
     pub fn get_formatted(&self) -> String {
-        //self.content_length.is_some()
-        let mut result: String= String::from("");
+        let mut result: String = String::new();
 
-        if let Some(content_type) = &self.content_type{
-            result.push_str(&format!("Content-Type: {content_type}\r\n"))
-        };
-        if let Some(content_length) = &self.content_length{
-            result.push_str(&format!("Content-Length: {content_length}\r\n"))
-        };
-        if let Some(content_encoding) = &self.content_encoding{
-            result.push_str(&format!("Content-Encoding: {content_encoding}\r\n"))
-        };
-        return result;
-
+        if let Some(content_type) = &self.content_type {
+            result.push_str(&format!("Content-Type: {content_type}\r\n"));
+        }
+        if let Some(content_length) = &self.content_length {
+            result.push_str(&format!("Content-Length: {content_length}\r\n"));
+        }
+        if let Some(content_encoding) = &self.content_encoding {
+            result.push_str(&format!("Content-Encoding: {content_encoding}\r\n"));
+        }
+        result
     }
-
-
 }
 
 #[derive(Clone)]
 struct HTTPBody {
-    body: String,
+    body: String,   // The body of the HTTP response
 }
 
 impl HTTPBody {
+    // Create a new HTTPBody with the provided body content
     fn new(body: String) -> Self {
-        Self {body}
-    }
-    fn get_formatted(&self) -> String {
-        return format!("{0}", self.body)
+        Self { body }
     }
 
+    // Format the body content as a string
+    fn get_formatted(&self) -> String {
+        format!("{}", self.body)
+    }
 }
